@@ -1,13 +1,61 @@
 <template>
   <div>
-    <!-- 成功页 -->
-    <div v-if="submitted" class="success-page">
-      <div class="success-icon">🎯</div>
-      <h2>提交成功！</h2>
-      <p>我们已收到你的学习诊断信息<br>将在24小时内通过企业微信<br>为你发送专属21天学习计划<br><br>请保持企业微信畅通，静待好消息 📚</p>
+
+    <!-- ① AI 动画过渡页 -->
+    <div v-if="analyzing" class="ai-page">
+      <div class="ai-orb">
+        <div class="orb-ring r1"></div>
+        <div class="orb-ring r2"></div>
+        <div class="orb-ring r3"></div>
+        <div class="orb-core">
+          <span class="orb-icon">🧠</span>
+        </div>
+      </div>
+      <div class="ai-label">AI 正在制定你的</div>
+      <div class="ai-title">专属学习计划</div>
+      <div class="ai-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="ai-steps">
+        <div class="ai-step" :class="{ done: aiStep >= 1 }">✦ 分析你的学科诊断数据</div>
+        <div class="ai-step" :class="{ done: aiStep >= 2 }">✦ 匹配最优提分路径</div>
+        <div class="ai-step" :class="{ done: aiStep >= 3 }">✦ 生成21天专属计划</div>
+      </div>
     </div>
 
-    <!-- 问卷主体 -->
+    <!-- ② 成功页 -->
+    <div v-else-if="submitted" class="success-page">
+      <div class="success-badge">计划已生成</div>
+      <div class="success-icon">🎯</div>
+      <h2>专属计划已就绪！</h2>
+      <p class="success-desc">
+        我们已为你制定21天专属学习计划<br>
+        请扫码添加企业微信，计划将在24小时内送达
+      </p>
+
+      <!-- 二维码区域 -->
+      <div class="qr-card">
+        <div class="qr-label">扫码添加企业微信</div>
+        <!-- 把你的二维码图片放到 src/assets/qrcode.png，或直接替换下面的 src -->
+        <div class="qr-wrap">
+          <img
+            src="./assets/qrcode.png"
+            alt="企业微信二维码"
+            class="qr-img"
+            @error="qrFallback = true"
+            v-if="!qrFallback"
+          />
+          <!-- 图片加载失败时的占位 -->
+          <div class="qr-placeholder" v-else>
+            <div class="qr-placeholder-icon">📱</div>
+            <div class="qr-placeholder-text">二维码图片<br>请替换 assets/qrcode.png</div>
+          </div>
+        </div>
+        <div class="qr-hint">长按或扫描二维码 · 添加后发送「学习计划」</div>
+      </div>
+    </div>
+
+    <!-- ③ 问卷主体 -->
     <div v-else>
       <!-- 顶部横幅 -->
       <div class="banner">
@@ -165,11 +213,14 @@
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+const API_URL = 'https://gaokao-backend.onrender.com'
 
 const submitted = ref(false)
+const analyzing = ref(false)  // AI动画状态
 const loading   = ref(false)
 const errorMsg  = ref('')
+const aiStep    = ref(0)      // 动画步骤 1/2/3
+const qrFallback = ref(false) // 二维码图片加载失败时显示占位
 
 const form = ref({
   name: '', wx_name: '', province: '', school_type: '',
@@ -269,7 +320,6 @@ const budgetOpts = [
   { k:'D', v:'D', label:'5000元以上', sub:'定制化服务/一对一咨询' },
 ]
 
-// 多选切换
 function toggleMulti(field, val) {
   const arr = form.value[field]
   const idx = arr.indexOf(val)
@@ -277,7 +327,6 @@ function toggleMulti(field, val) {
   else arr.splice(idx, 1)
 }
 
-// 进度计算
 const totalCount = 11
 const answeredCount = computed(() => {
   let n = 0
@@ -297,7 +346,6 @@ const answeredCount = computed(() => {
 })
 const progressPct = computed(() => Math.round((answeredCount.value / totalCount) * 100))
 
-// 提交
 async function submitForm() {
   errorMsg.value = ''
   if (!form.value.name.trim()) { errorMsg.value = '请填写姓名'; return }
@@ -314,12 +362,26 @@ async function submitForm() {
       channels: form.value.channels.join(','),
       invest:   form.value.invest.join(','),
     })
-    submitted.value = true
-    window.scrollTo(0, 0)
-  } catch (e) {
-    errorMsg.value = e.response?.data?.detail || '提交失败，请重试'
-  } finally {
+
+    // 提交成功 → 显示AI动画
     loading.value = false
+    analyzing.value = true
+    window.scrollTo(0, 0)
+
+    // 步骤动画：每隔1秒推进一步
+    setTimeout(() => { aiStep.value = 1 }, 600)
+    setTimeout(() => { aiStep.value = 2 }, 1400)
+    setTimeout(() => { aiStep.value = 3 }, 2200)
+
+    // 3.5秒后跳转成功页
+    setTimeout(() => {
+      analyzing.value = false
+      submitted.value = true
+    }, 3500)
+
+  } catch (e) {
+    loading.value = false
+    errorMsg.value = e.response?.data?.detail || '提交失败，请重试'
   }
 }
 </script>
@@ -327,6 +389,208 @@ async function submitForm() {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap');
 
+/* ─── AI 动画页 ──────────────────────────────────────────── */
+.ai-page {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #0d0d1a 0%, #1a1a2e 60%, #0d0d1a 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.ai-orb {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin-bottom: 36px;
+}
+
+.orb-core {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+.orb-icon {
+  font-size: 48px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.orb-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(192, 57, 43, 0.5);
+  animation: ripple 2.4s ease-out infinite;
+}
+.r1 { inset: 0; animation-delay: 0s; }
+.r2 { inset: -16px; animation-delay: 0.6s; border-color: rgba(192,57,43,0.3); }
+.r3 { inset: -32px; animation-delay: 1.2s; border-color: rgba(192,57,43,0.15); }
+
+@keyframes ripple {
+  0%   { transform: scale(0.85); opacity: 1; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.1); }
+}
+
+.ai-label {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+
+.ai-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 2px;
+  margin-bottom: 28px;
+}
+
+.ai-dots {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 40px;
+}
+.ai-dots span {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #c0392b;
+  animation: bounce 1.2s ease-in-out infinite;
+}
+.ai-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ai-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%           { transform: translateY(-10px); opacity: 1; }
+}
+
+.ai-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+.ai-step {
+  font-size: 13px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 1px;
+  transition: color 0.5s ease;
+  padding-left: 4px;
+}
+.ai-step.done {
+  color: rgba(255,255,255,0.85);
+}
+
+/* ─── 成功页 ─────────────────────────────────────────────── */
+.success-page {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #0d0d1a 0%, #1a1a2e 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.success-badge {
+  display: inline-block;
+  background: rgba(192,57,43,0.15);
+  border: 1px solid rgba(192,57,43,0.4);
+  color: #e74c3c;
+  font-size: 11px;
+  letter-spacing: 3px;
+  padding: 5px 16px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+.success-icon { font-size: 56px; margin-bottom: 16px; }
+
+.success-page h2 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.success-desc {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.9;
+  margin-bottom: 36px;
+}
+
+/* 二维码卡片 */
+.qr-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.qr-label {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 18px;
+}
+
+.qr-wrap {
+  width: 180px;
+  height: 180px;
+  margin: 0 auto 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.qr-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+}
+.qr-placeholder-icon { font-size: 36px; }
+.qr-placeholder-text {
+  font-size: 11px;
+  color: #999;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.qr-hint {
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  line-height: 1.7;
+}
+
+/* ─── 问卷样式（不变）────────────────────────────────────── */
 .banner {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   color: #fff;
@@ -429,6 +693,7 @@ async function submitForm() {
   font-family: 'Noto Sans SC', sans-serif;
   font-size: 14px; background: #fdf6e3;
   color: #1a1a2e; outline: none; transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 .text-input:focus { border-color: #c0392b; background: #fff; }
 .text-input::placeholder { color: #7f8c8d; }
@@ -455,15 +720,4 @@ async function submitForm() {
 .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(192,57,43,0.45); }
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .hint { font-size: 12px; color: #7f8c8d; margin-top: 12px; line-height: 1.6; }
-
-.success-page {
-  text-align: center; padding: 100px 30px;
-}
-.success-icon { font-size: 64px; margin-bottom: 20px; }
-.success-page h2 {
-  font-family: 'Noto Serif SC', serif;
-  font-size: 24px; font-weight: 700;
-  margin-bottom: 14px;
-}
-.success-page p { font-size: 14px; color: #7f8c8d; line-height: 1.8; }
 </style>
