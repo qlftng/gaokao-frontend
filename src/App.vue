@@ -133,7 +133,7 @@
           <div class="options">
             <label v-for="opt in subj.opts" :key="opt.v"
               class="opt-label" :class="{ checked: form[subj.key] === opt.v }"
-              @click="form[subj.key] = opt.v">
+              @click="selectElective(subj.key, opt.v)">
               <span class="opt-key" :class="{ active: form[subj.key] === opt.v }">{{ opt.k }}</span>
               <span>{{ opt.label }} <span class="q-sub" v-if="opt.sub">{{ opt.sub }}</span></span>
             </label>
@@ -325,6 +325,29 @@ function toggleMulti(field, val) {
   const idx = arr.indexOf(val)
   if (idx === -1) arr.push(val)
   else arr.splice(idx, 1)
+}
+
+function selectElective(key, value) {
+  // 1. 构建下一状态（不碰真实 form）
+  const next = { ...form.value, [key]: value }
+
+  // 2. 互斥规则：物理 ↔ 历史
+  if (key === 'physics' && value !== 'E') next.history = 'E'
+  if (key === 'history' && value !== 'E') next.physics = 'E'
+
+  // 3. 四选二规则：化学、生物、政治、地理
+  const GROUP = ['chemistry', 'biology', 'politics', 'geography']
+  if (GROUP.includes(key) && value !== 'E') {
+    const count = GROUP.filter(k => next[k] !== 'E').length
+    if (count > 2) {
+      errorMsg.value = '化学、生物、政治、地理最多选两门'
+      return
+    }
+  }
+
+  // 4. 规则通过，一次性应用
+  Object.assign(form.value, next)
+  errorMsg.value = ''
 }
 
 const totalCount = 11
