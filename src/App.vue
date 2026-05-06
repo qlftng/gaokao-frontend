@@ -346,7 +346,7 @@ function selectElective(key, value) {
   }
 
   // 4. 规则通过，一次性应用
-  Object.assign(form.value, next)
+  form.value = next
   errorMsg.value = ''
 }
 
