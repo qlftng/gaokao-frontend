@@ -57,6 +57,14 @@
 
     <!-- ③ 问卷主体 -->
     <div v-else>
+      <!-- 提示弹窗 -->
+      <div class="toast-overlay" v-if="toastMsg" @click="toastMsg = ''">
+        <div class="toast-box" @click.stop>
+          <div class="toast-icon">⚠️</div>
+          <div class="toast-text">{{ toastMsg }}</div>
+          <button class="toast-btn" @click="toastMsg = ''">知道了</button>
+        </div>
+      </div>
       <!-- 顶部横幅 -->
       <div class="banner">
         <div class="banner-tag">2026 高考备战</div>
@@ -219,6 +227,7 @@ const submitted = ref(false)
 const analyzing = ref(false)  // AI动画状态
 const loading   = ref(false)
 const errorMsg  = ref('')
+const toastMsg  = ref('')
 const aiStep    = ref(0)      // 动画步骤 1/2/3
 const qrFallback = ref(false) // 二维码图片加载失败时显示占位
 
@@ -331,16 +340,22 @@ function selectElective(key, value) {
   // 1. 构建下一状态（不碰真实 form）
   const next = { ...form.value, [key]: value }
 
-  // 2. 互斥规则：物理 ↔ 历史
-  if (key === 'physics' && value !== 'E') next.history = 'E'
-  if (key === 'history' && value !== 'E') next.physics = 'E'
+  // 2. 互斥规则：物理 ↔ 历史（阻止并提示）
+  if (key === 'physics' && value !== 'E' && form.value.history !== 'E') {
+    toastMsg.value = '已选历史，不能同时选物理，请先将历史设为"不选该科"'
+    return
+  }
+  if (key === 'history' && value !== 'E' && form.value.physics !== 'E') {
+    toastMsg.value = '已选物理，不能同时选历史，请先将物理设为"不选该科"'
+    return
+  }
 
   // 3. 四选二规则：化学、生物、政治、地理
   const GROUP = ['chemistry', 'biology', 'politics', 'geography']
   if (GROUP.includes(key) && value !== 'E') {
     const count = GROUP.filter(k => next[k] !== 'E').length
     if (count > 2) {
-      errorMsg.value = '化学、生物、政治、地理最多选两门'
+      toastMsg.value = '化学、生物、政治、地理最多选两门'
       return
     }
   }
@@ -743,4 +758,30 @@ async function submitForm() {
 .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(192,57,43,0.45); }
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .hint { font-size: 12px; color: #7f8c8d; margin-top: 12px; line-height: 1.6; }
+
+/* toast 弹窗 */
+.toast-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.toast-box {
+  background: #fff; border-radius: 12px;
+  padding: 28px 24px 20px;
+  max-width: 300px; text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  animation: scaleIn 0.2s ease;
+}
+.toast-icon { font-size: 36px; margin-bottom: 12px; }
+.toast-text { font-size: 14px; color: #1a1a2e; line-height: 1.7; margin-bottom: 20px; }
+.toast-btn {
+  background: #c0392b; color: #fff; border: none;
+  border-radius: 6px; padding: 8px 32px;
+  font-size: 14px; cursor: pointer;
+  transition: background 0.2s;
+}
+.toast-btn:hover { background: #a93226; }
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 </style>
