@@ -39,20 +39,21 @@
         <div class="qr-label">扫码添加企业微信</div>
         <!-- 把你的二维码图片放到 src/assets/qrcode.png，或直接替换下面的 src -->
         <div class="qr-wrap">
-          <img
-            src="./assets/qrcode.png"
-            alt="企业微信二维码"
-            class="qr-img"
-            @error="qrFallback = true"
-            v-if="!qrFallback"
-          />
+          <a v-if="!qrFallback" href="/qrcode.png" target="_blank" title="点击查看大图">
+            <img
+              src="/qrcode.png"
+              alt="企业微信二维码"
+              class="qr-img"
+              @error="qrFallback = true"
+                          />
+          </a>
           <!-- 图片加载失败时的占位 -->
           <div class="qr-placeholder" v-else>
             <div class="qr-placeholder-icon">📱</div>
-            <div class="qr-placeholder-text">二维码图片<br>请替换 assets/qrcode.png</div>
+            <div class="qr-placeholder-text">二维码图片<br>请替换 public/qrcode.png</div>
           </div>
         </div>
-        <div class="qr-hint">长按或扫描二维码 · 添加后发送「学习计划」</div>
+        <div class="qr-hint">长按保存或扫描二维码 · 点击可放大 · 添加后发送「学习计划」</div>
       </div>
     </div>
 
@@ -83,10 +84,13 @@
 
         <div class="card">
           <div class="q-num">Q1</div>
-          <div class="q-text">请填写你的姓名和企业微信昵称</div>
+          <div class="q-text">请填写你的个人信息</div>
           <div class="row-2">
             <input class="text-input" v-model="form.name" placeholder="你的姓名（必填）">
-            <input class="text-input" v-model="form.wx_name" placeholder="企业微信昵称">
+            <input class="text-input" v-model="form.wx_name" placeholder="微信昵称">
+          </div>
+          <div class="row-2" style="margin-top: 8px;">
+            <input class="text-input" v-model="form.phone" placeholder="手机号（必填）">
           </div>
         </div>
 
@@ -199,8 +203,8 @@
         <!-- 提交 -->
         <div class="submit-wrap">
           <div class="error-msg" v-if="errorMsg">{{ errorMsg }}</div>
-          <button class="submit-btn" :disabled="loading" @click="submitForm">
-            {{ loading ? '提交中...' : '提交问卷' }}
+          <button class="submit-btn" :disabled="loading" @click="submitForm(showForceBtn)">
+            {{ loading ? '提交中...' : showForceBtn ? '重新提交（覆盖原有数据）' : '提交问卷' }}
           </button>
           <p class="hint">提交后我们将在24小时内为你生成专属学习计划<br>并通过企业微信发送给你</p>
         </div>
@@ -235,7 +239,7 @@ const aiStep    = ref(0)      // 动画步骤 1/2/3
 const qrFallback = ref(false) // 二维码图片加载失败时显示占位
 
 const form = ref({
-  name: '', wx_name: '', province: '', school_type: '',
+  name: '', wx_name: '', phone: '', province: '', school_type: '',
   chinese: '', math: '', english: '',
   physics: 'E', chemistry: 'E', biology: 'E',
   politics: 'E', history: 'E', geography: 'E',
@@ -358,25 +362,16 @@ const answeredCount = computed(() => {
 })
 const progressPct = computed(() => Math.round((answeredCount.value / totalCount) * 100))
 
+const ELECTIVE_KEYS = ['physics', 'chemistry', 'biology', 'politics', 'history', 'geography']
+
 function selectElective(key, value) {
   const next = { ...form.value, [key]: value }
 
-  // 互斥规则：物理 ↔ 历史
-  if (key === 'physics' && value !== 'E' && form.value.history !== 'E') {
-    toastMsg.value = '已选历史，不能同时选物理，请先将历史设为"不选该科"'
-    return
-  }
-  if (key === 'history' && value !== 'E' && form.value.physics !== 'E') {
-    toastMsg.value = '已选物理，不能同时选历史，请先将物理设为"不选该科"'
-    return
-  }
-
-  // 四选二规则：化学、生物、政治、地理最多选两门
-  const GROUP = ['chemistry', 'biology', 'politics', 'geography']
-  if (GROUP.includes(key) && value !== 'E') {
-    const count = GROUP.filter(k => next[k] !== 'E').length
-    if (count > 2) {
-      toastMsg.value = '化学、生物、政治、地理最多选两门'
+  // 六选三规则：物理/化学/生物/政治/历史/地理中恰好选 3 门
+  if (value !== 'E') {
+    const count = ELECTIVE_KEYS.filter(k => next[k] !== 'E').length
+    if (count > 3) {
+      toastMsg.value = '六门选考科目中最多选择 3 门，请先取消其他科目'
       return
     }
   }
@@ -388,9 +383,16 @@ function selectElective(key, value) {
 async function submitForm(force = false) {
   errorMsg.value = ''
   if (!form.value.name.trim()) { errorMsg.value = '请填写姓名'; return }
+  if (!form.value.phone.trim()) { errorMsg.value = '请填写手机号'; return }
   if (!form.value.province.trim()) { errorMsg.value = '请填写省份'; return }
   if (!form.value.chinese || !form.value.math || !form.value.english) {
     errorMsg.value = '请完成语数英成绩评估'; return
+  }
+  // 六选三校验：物理/化学/生物/政治/历史/地理中恰好选 3 门
+  const electiveCount = ELECTIVE_KEYS.filter(k => form.value[k] && form.value[k] !== 'E').length
+  if (electiveCount !== 3) {
+    errorMsg.value = '请在物理、化学、生物、政治、历史、地理中选择恰好 3 门选考科目'
+    return
   }
 
   loading.value = true
@@ -615,6 +617,7 @@ function goBack() {
   margin-bottom: 18px;
 }
 
+.qr-wrap a { display: block; width: 100%; height: 100%; cursor: pointer; }
 .qr-wrap {
   width: 180px;
   height: 180px;
