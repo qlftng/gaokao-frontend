@@ -134,7 +134,7 @@
           <div class="options">
             <label v-for="opt in subj.opts" :key="opt.v"
               class="opt-label" :class="{ checked: form[subj.key] === opt.v }"
-              @click="form[subj.key] = opt.v">
+              @click="selectElective(subj.key, opt.v)">
               <span class="opt-key" :class="{ active: form[subj.key] === opt.v }">{{ opt.k }}</span>
               <span>{{ opt.label }} <span class="q-sub" v-if="opt.sub">{{ opt.sub }}</span></span>
             </label>
@@ -207,6 +207,15 @@
 
       </div>
     </div>
+
+    <!-- Toast 弹窗（选科约束提示） -->
+    <div class="toast-overlay" v-if="toastMsg" @click="toastMsg = ''">
+      <div class="toast-box" @click.stop>
+        <div class="toast-icon">⚠️</div>
+        <div class="toast-text">{{ toastMsg }}</div>
+        <button class="toast-btn" @click="toastMsg = ''">知道了</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -221,6 +230,7 @@ const analyzing    = ref(false)  // AI动画状态
 const loading      = ref(false)
 const errorMsg     = ref('')
 const showForceBtn = ref(false)
+const toastMsg     = ref('')
 const aiStep    = ref(0)      // 动画步骤 1/2/3
 const qrFallback = ref(false) // 二维码图片加载失败时显示占位
 
@@ -347,6 +357,33 @@ const answeredCount = computed(() => {
   return n
 })
 const progressPct = computed(() => Math.round((answeredCount.value / totalCount) * 100))
+
+function selectElective(key, value) {
+  const next = { ...form.value, [key]: value }
+
+  // 互斥规则：物理 ↔ 历史
+  if (key === 'physics' && value !== 'E' && form.value.history !== 'E') {
+    toastMsg.value = '已选历史，不能同时选物理，请先将历史设为"不选该科"'
+    return
+  }
+  if (key === 'history' && value !== 'E' && form.value.physics !== 'E') {
+    toastMsg.value = '已选物理，不能同时选历史，请先将物理设为"不选该科"'
+    return
+  }
+
+  // 四选二规则：化学、生物、政治、地理最多选两门
+  const GROUP = ['chemistry', 'biology', 'politics', 'geography']
+  if (GROUP.includes(key) && value !== 'E') {
+    const count = GROUP.filter(k => next[k] !== 'E').length
+    if (count > 2) {
+      toastMsg.value = '化学、生物、政治、地理最多选两门'
+      return
+    }
+  }
+
+  form.value = next
+  errorMsg.value = ''
+}
 
 async function submitForm(force = false) {
   errorMsg.value = ''
@@ -747,4 +784,29 @@ function goBack() {
 .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(192,57,43,0.45); }
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .hint { font-size: 12px; color: #7f8c8d; margin-top: 12px; line-height: 1.6; }
+
+/* ─── Toast 弹窗 ──────────────────────────────────────────── */
+.toast-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+.toast-box {
+  background: #fff; border-radius: 16px;
+  padding: 32px 28px 24px;
+  text-align: center; max-width: 320px; width: 90%;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.25);
+  animation: scaleIn 0.25s ease;
+}
+.toast-icon { font-size: 40px; margin-bottom: 12px; }
+.toast-text { font-size: 15px; color: #2d3436; line-height: 1.6; margin-bottom: 20px; }
+.toast-btn {
+  background: #c0392b; color: #fff; border: none;
+  border-radius: 8px; padding: 10px 36px;
+  font-size: 14px; font-weight: 500; cursor: pointer;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 </style>
