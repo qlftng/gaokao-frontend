@@ -32,6 +32,7 @@
         我们已为你制定21天专属学习计划<br>
         请扫码添加企业微信，计划将在24小时内送达
       </p>
+      <button class="fix-btn" @click="goBack">📝 我填错了，重新填写</button>
 
       <!-- 二维码区域 -->
       <div class="qr-card">
@@ -57,14 +58,6 @@
 
     <!-- ③ 问卷主体 -->
     <div v-else>
-      <!-- 提示弹窗 -->
-      <div class="toast-overlay" v-if="toastMsg" @click="toastMsg = ''">
-        <div class="toast-box" @click.stop>
-          <div class="toast-icon">⚠️</div>
-          <div class="toast-text">{{ toastMsg }}</div>
-          <button class="toast-btn" @click="toastMsg = ''">知道了</button>
-        </div>
-      </div>
       <!-- 顶部横幅 -->
       <div class="banner">
         <div class="banner-tag">2026 高考备战</div>
@@ -141,7 +134,7 @@
           <div class="options">
             <label v-for="opt in subj.opts" :key="opt.v"
               class="opt-label" :class="{ checked: form[subj.key] === opt.v }"
-              @click="selectElective(subj.key, opt.v)">
+              @click="form[subj.key] = opt.v">
               <span class="opt-key" :class="{ active: form[subj.key] === opt.v }">{{ opt.k }}</span>
               <span>{{ opt.label }} <span class="q-sub" v-if="opt.sub">{{ opt.sub }}</span></span>
             </label>
@@ -223,11 +216,11 @@ import axios from 'axios'
 
 const API_URL = 'https://gaokao-backend.onrender.com'
 
-const submitted = ref(false)
-const analyzing = ref(false)  // AI动画状态
-const loading   = ref(false)
-const errorMsg  = ref('')
-const toastMsg  = ref('')
+const submitted    = ref(false)
+const analyzing    = ref(false)  // AI动画状态
+const loading      = ref(false)
+const errorMsg     = ref('')
+const showForceBtn = ref(false)
 const aiStep    = ref(0)      // 动画步骤 1/2/3
 const qrFallback = ref(false) // 二维码图片加载失败时显示占位
 
@@ -336,35 +329,6 @@ function toggleMulti(field, val) {
   else arr.splice(idx, 1)
 }
 
-function selectElective(key, value) {
-  // 1. 构建下一状态（不碰真实 form）
-  const next = { ...form.value, [key]: value }
-
-  // 2. 互斥规则：物理 ↔ 历史（阻止并提示）
-  if (key === 'physics' && value !== 'E' && form.value.history !== 'E') {
-    toastMsg.value = '已选历史，不能同时选物理，请先将历史设为"不选该科"'
-    return
-  }
-  if (key === 'history' && value !== 'E' && form.value.physics !== 'E') {
-    toastMsg.value = '已选物理，不能同时选历史，请先将物理设为"不选该科"'
-    return
-  }
-
-  // 3. 四选二规则：化学、生物、政治、地理
-  const GROUP = ['chemistry', 'biology', 'politics', 'geography']
-  if (GROUP.includes(key) && value !== 'E') {
-    const count = GROUP.filter(k => next[k] !== 'E').length
-    if (count > 2) {
-      toastMsg.value = '化学、生物、政治、地理最多选两门'
-      return
-    }
-  }
-
-  // 4. 规则通过，一次性应用
-  form.value = next
-  errorMsg.value = ''
-}
-
 const totalCount = 11
 const answeredCount = computed(() => {
   let n = 0
@@ -384,7 +348,7 @@ const answeredCount = computed(() => {
 })
 const progressPct = computed(() => Math.round((answeredCount.value / totalCount) * 100))
 
-async function submitForm() {
+async function submitForm(force = false) {
   errorMsg.value = ''
   if (!form.value.name.trim()) { errorMsg.value = '请填写姓名'; return }
   if (!form.value.province.trim()) { errorMsg.value = '请填写省份'; return }
@@ -399,19 +363,16 @@ async function submitForm() {
       problems: form.value.problems.join(','),
       channels: form.value.channels.join(','),
       invest:   form.value.invest.join(','),
+      force,
     })
 
-    // 提交成功 → 显示AI动画
     loading.value = false
     analyzing.value = true
     window.scrollTo(0, 0)
 
-    // 步骤动画：每隔1秒推进一步
     setTimeout(() => { aiStep.value = 1 }, 600)
     setTimeout(() => { aiStep.value = 2 }, 1400)
     setTimeout(() => { aiStep.value = 3 }, 2200)
-
-    // 3.5秒后跳转成功页
     setTimeout(() => {
       analyzing.value = false
       submitted.value = true
@@ -419,8 +380,22 @@ async function submitForm() {
 
   } catch (e) {
     loading.value = false
+    // 已存在：提示用户可以覆盖
+    if (e.response?.status === 409) {
+      errorMsg.value = '你已经提交过了！如果想修改答案，请点击下方按钮重新提交（将覆盖原有数据）'
+      showForceBtn.value = true
+      return
+    }
     errorMsg.value = e.response?.data?.detail || '提交失败，请重试'
   }
+}
+
+function goBack() {
+  submitted.value = false
+  analyzing.value = false
+  aiStep.value = 0
+  showForceBtn.value = true
+  window.scrollTo(0, 0)
 }
 </script>
 
@@ -569,8 +544,22 @@ async function submitForm() {
   font-size: 14px;
   color: rgba(255,255,255,0.5);
   line-height: 1.9;
-  margin-bottom: 36px;
+  margin-bottom: 20px;
 }
+
+.fix-btn {
+  display: inline-block;
+  margin-bottom: 24px;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.fix-btn:hover { border-color: rgba(255,255,255,0.35); color: rgba(255,255,255,0.7); }
 
 /* 二维码卡片 */
 .qr-card {
@@ -758,30 +747,4 @@ async function submitForm() {
 .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(192,57,43,0.45); }
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .hint { font-size: 12px; color: #7f8c8d; margin-top: 12px; line-height: 1.6; }
-
-/* toast 弹窗 */
-.toast-overlay {
-  position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,0.5);
-  display: flex; align-items: center; justify-content: center;
-  animation: fadeIn 0.2s ease;
-}
-.toast-box {
-  background: #fff; border-radius: 12px;
-  padding: 28px 24px 20px;
-  max-width: 300px; text-align: center;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-  animation: scaleIn 0.2s ease;
-}
-.toast-icon { font-size: 36px; margin-bottom: 12px; }
-.toast-text { font-size: 14px; color: #1a1a2e; line-height: 1.7; margin-bottom: 20px; }
-.toast-btn {
-  background: #c0392b; color: #fff; border: none;
-  border-radius: 6px; padding: 8px 32px;
-  font-size: 14px; cursor: pointer;
-  transition: background 0.2s;
-}
-.toast-btn:hover { background: #a93226; }
-@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
-@keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 </style>
