@@ -11,7 +11,7 @@
           <span class="orb-icon">🧠</span>
         </div>
       </div>
-      <div class="ai-label">AI 正在制定你的</div>
+      <div class="ai-label">正在为你制定</div>
       <div class="ai-title">专属学习计划</div>
       <div class="ai-dots">
         <span></span><span></span><span></span>
@@ -30,13 +30,13 @@
       <h2>专属计划已就绪！</h2>
       <p class="success-desc">
         我们已为你制定21天专属学习计划<br>
-        请扫码添加企业微信，计划将在24小时内送达
+        请长按二维码添加企业微信好友，计划将在24小时内送达
       </p>
       <button class="fix-btn" @click="goBack">📝 我填错了，重新填写</button>
 
       <!-- 二维码区域 -->
       <div class="qr-card">
-        <div class="qr-label">扫码添加企业微信</div>
+        <div class="qr-label">长按二维码添加企业微信好友</div>
         <!-- 把你的二维码图片放到 src/assets/qrcode.png，或直接替换下面的 src -->
         <div class="qr-wrap">
           <a v-if="!qrFallback" href="/qrcode.png" target="_blank" title="点击查看大图">
@@ -90,14 +90,49 @@
             <input class="text-input" v-model="form.wx_name" placeholder="微信昵称">
           </div>
           <div class="row-2" style="margin-top: 8px;">
-            <input class="text-input" v-model="form.phone" placeholder="手机号（必填）">
+            <input class="text-input" v-model="form.phone" type="tel" placeholder="手机号（必填）">
           </div>
         </div>
 
         <div class="card">
           <div class="q-num">Q2</div>
           <div class="q-text">你所在的省份是？</div>
-          <input class="text-input" v-model="form.province" placeholder="请输入省份，如：河南">
+          <div class="select-wrapper">
+            <select v-model="form.province">
+              <option value="">请选择省份</option>
+              <option value="北京">北京</option>
+              <option value="天津">天津</option>
+              <option value="河北">河北</option>
+              <option value="山西">山西</option>
+              <option value="内蒙古">内蒙古</option>
+              <option value="辽宁">辽宁</option>
+              <option value="吉林">吉林</option>
+              <option value="黑龙江">黑龙江</option>
+              <option value="上海">上海</option>
+              <option value="江苏">江苏</option>
+              <option value="浙江">浙江</option>
+              <option value="安徽">安徽</option>
+              <option value="福建">福建</option>
+              <option value="江西">江西</option>
+              <option value="山东">山东</option>
+              <option value="河南">河南</option>
+              <option value="湖北">湖北</option>
+              <option value="湖南">湖南</option>
+              <option value="广东">广东</option>
+              <option value="广西">广西</option>
+              <option value="海南">海南</option>
+              <option value="重庆">重庆</option>
+              <option value="四川">四川</option>
+              <option value="贵州">贵州</option>
+              <option value="云南">云南</option>
+              <option value="西藏">西藏</option>
+              <option value="陕西">陕西</option>
+              <option value="甘肃">甘肃</option>
+              <option value="青海">青海</option>
+              <option value="宁夏">宁夏</option>
+              <option value="新疆">新疆</option>
+            </select>
+          </div>
         </div>
 
         <div class="card">
@@ -382,9 +417,17 @@ function selectElective(key, value) {
 
 async function submitForm(force = false) {
   errorMsg.value = ''
-  if (!form.value.name.trim()) { errorMsg.value = '请填写姓名'; return }
-  if (!form.value.phone.trim()) { errorMsg.value = '请填写手机号'; return }
-  if (!form.value.province.trim()) { errorMsg.value = '请填写省份'; return }
+
+  const name = form.value.name.trim()
+  if (!name) { errorMsg.value = '请填写姓名'; return }
+
+  const phone = (form.value.phone || '').trim()
+  if (!phone) { errorMsg.value = '请填写手机号'; return }
+  if (!/^1[3-9]\d{9}$/.test(phone)) { errorMsg.value = '请填写正确的11位手机号'; return }
+
+  const province = (form.value.province || '').trim()
+  if (!province) { errorMsg.value = '请选择省份'; return }
+
   if (!form.value.chinese || !form.value.math || !form.value.english) {
     errorMsg.value = '请完成语数英成绩评估'; return
   }
@@ -764,6 +807,28 @@ function goBack() {
 }
 .text-input:focus { border-color: #c0392b; background: #fff; }
 .text-input::placeholder { color: #7f8c8d; }
+
+.select-wrapper {
+  position: relative;
+}
+.select-wrapper select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #d4c5a0;
+  border-radius: 6px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  background: #fdf6e3;
+  color: #1a1a2e;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.select-wrapper select:focus {
+  border-color: #c0392b;
+  background: #fff;
+}
 
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 480px) { .row-2 { grid-template-columns: 1fr; } }
