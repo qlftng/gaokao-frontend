@@ -87,10 +87,34 @@
           <div class="q-text">请填写你的个人信息</div>
           <div class="row-2">
             <input class="text-input" v-model="form.name" placeholder="你的姓名（必填）">
-            <input class="text-input" v-model="form.wx_name" placeholder="微信昵称">
+            <div class="input-with-tip">
+              <input class="text-input" v-model="form.wx_name" placeholder="微信昵称">
+              <span class="tip-icon" title="请填写你微信上的真实名称，方便我们准确找到你">?</span>
+            </div>
           </div>
           <div class="row-2" style="margin-top: 8px;">
             <input class="text-input" v-model="form.phone" type="tel" placeholder="手机号（必填）">
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="q-num">📷</div>
+          <div class="q-text">上传微信主页截图<span class="q-sub">（选填）</span></div>
+          <p class="q-sub" style="margin-bottom: 12px;">
+            请截取你的微信「我」页面，方便我们准确找到你并发送学习计划
+          </p>
+          <div class="upload-area" @click="triggerUpload" :class="{ has: screenshotPreview }">
+            <img v-if="screenshotPreview" :src="screenshotPreview" class="preview-img" />
+            <div v-else class="upload-placeholder">
+              <span class="upload-icon">📁</span>
+              <span>点击上传截图</span>
+              <span class="upload-hint">支持 JPG/PNG，不超过 5MB</span>
+            </div>
+          </div>
+          <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp"
+            style="display:none" @change="onFileChange" />
+          <div v-if="screenshotPreview" class="upload-actions">
+            <button type="button" class="retry-btn" @click="clearScreenshot">重新上传</button>
           </div>
         </div>
 
@@ -264,14 +288,17 @@ import axios from 'axios'
 
 const API_URL = 'https://gaokao-backend.onrender.com'
 
-const submitted    = ref(false)
-const analyzing    = ref(false)  // AI动画状态
-const loading      = ref(false)
-const errorMsg     = ref('')
-const showForceBtn = ref(false)
-const toastMsg     = ref('')
-const aiStep    = ref(0)      // 动画步骤 1/2/3
-const qrFallback = ref(false) // 二维码图片加载失败时显示占位
+const submitted       = ref(false)
+const analyzing       = ref(false)
+const loading         = ref(false)
+const errorMsg        = ref('')
+const showForceBtn    = ref(false)
+const toastMsg        = ref('')
+const aiStep          = ref(0)
+const qrFallback      = ref(false)
+const screenshotFile  = ref(null)
+const screenshotPreview = ref(null)
+const fileInput       = ref(null)
 
 const form = ref({
   name: '', wx_name: '', phone: '', province: '', school_type: '',
@@ -378,6 +405,25 @@ function toggleMulti(field, val) {
   else arr.splice(idx, 1)
 }
 
+function triggerUpload() { fileInput.value.click() }
+
+function onFileChange(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  if (file.size > 5 * 1024 * 1024) {
+    errorMsg.value = '图片大小不能超过 5MB'
+    return
+  }
+  screenshotFile.value = file
+  screenshotPreview.value = URL.createObjectURL(file)
+}
+
+function clearScreenshot() {
+  screenshotFile.value = null
+  screenshotPreview.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
+
 const totalCount = 11
 const answeredCount = computed(() => {
   let n = 0
@@ -440,11 +486,20 @@ async function submitForm(force = false) {
 
   loading.value = true
   try {
+    let screenshotUrl = ''
+    if (screenshotFile.value) {
+      const fd = new FormData()
+      fd.append('file', screenshotFile.value)
+      const uploadRes = await axios.post(`${API_URL}/api/upload-screenshot`, fd)
+      screenshotUrl = uploadRes.data.url
+    }
+
     await axios.post(`${API_URL}/api/submit`, {
       ...form.value,
       problems: form.value.problems.join(','),
       channels: form.value.channels.join(','),
       invest:   form.value.invest.join(','),
+      screenshot_url: screenshotUrl,
       force,
     })
 
@@ -477,6 +532,7 @@ function goBack() {
   analyzing.value = false
   aiStep.value = 0
   showForceBtn.value = true
+  clearScreenshot()
   window.scrollTo(0, 0)
 }
 </script>
@@ -829,6 +885,46 @@ function goBack() {
   border-color: #c0392b;
   background: #fff;
 }
+
+.input-with-tip { position: relative; display: flex; align-items: center; gap: 6px; }
+.input-with-tip .text-input { flex: 1; }
+.tip-icon {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #d4c5a0;
+  color: #1a1a2e;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.upload-area {
+  border: 2px dashed #d4c5a0;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fdf6e3;
+}
+.upload-area:hover { border-color: #c0392b; background: #fff5f5; }
+.upload-area.has { padding: 8px; }
+
+.upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #7f8c8d; font-size: 14px; }
+.upload-icon { font-size: 32px; }
+.upload-hint { font-size: 11px; color: #b0a080; }
+
+.preview-img { max-width: 100%; max-height: 200px; border-radius: 6px; object-fit: contain; }
+
+.upload-actions { text-align: center; margin-top: 8px; }
+.retry-btn {
+  background: none; border: 1px solid #d4c5a0;
+  color: #7f8c8d; font-size: 12px;
+  padding: 4px 16px; border-radius: 16px;
+  cursor: pointer; transition: all 0.2s;
+}
+.retry-btn:hover { border-color: #c0392b; color: #c0392b; }
 
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 480px) { .row-2 { grid-template-columns: 1fr; } }
