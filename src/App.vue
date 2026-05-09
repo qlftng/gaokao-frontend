@@ -89,7 +89,7 @@
             <input class="text-input" v-model="form.name" placeholder="你的姓名（必填）">
             <div class="input-with-tip">
               <input class="text-input" v-model="form.wx_name" placeholder="微信昵称">
-              <span class="tip-icon" title="请填写你微信上的真实名称，方便我们准确找到你">?</span>
+              <div class="tip-bubble">请填写你微信上的真实名称，方便我们准确找到你</div>
             </div>
           </div>
           <div class="row-2" style="margin-top: 8px;">
@@ -886,17 +886,40 @@ function goBack() {
   background: #fff;
 }
 
-.input-with-tip { position: relative; display: flex; align-items: center; gap: 6px; }
+.input-with-tip { position: relative; display: flex; align-items: center; }
 .input-with-tip .text-input { flex: 1; }
-.tip-icon {
-  width: 18px; height: 18px;
-  border-radius: 50%;
-  background: #d4c5a0;
-  color: #1a1a2e;
-  font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  cursor: help;
-  flex-shrink: 0;
+.tip-bubble {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #fef9e7;
+  border: 1px solid #e8d5a0;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  color: #8b6914;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  z-index: 10;
+}
+.tip-bubble::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-right-color: #e8d5a0;
+}
+.tip-bubble::after {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(1px);
+  border: 5px solid transparent;
+  border-right-color: #fef9e7;
 }
 
 .upload-area {
@@ -927,6 +950,18 @@ function goBack() {
 .retry-btn:hover { border-color: #c0392b; color: #c0392b; }
 
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 768px) {
+  .tip-bubble {
+    position: static;
+    transform: none;
+    margin-top: 6px;
+    white-space: normal;
+    font-size: 11px;
+  }
+  .tip-bubble::before,
+  .tip-bubble::after { display: none; }
+  .input-with-tip { flex-direction: column; align-items: stretch; }
+}
 @media (max-width: 480px) { .row-2 { grid-template-columns: 1fr; } }
 
 .submit-wrap { padding: 28px 0 40px; text-align: center; }
