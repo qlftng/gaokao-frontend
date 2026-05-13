@@ -525,6 +525,10 @@ async function submitForm(force = false) {
 
   } catch (e) {
     loading.value = false
+    // 提交失败时清理已上传的截图，避免孤儿文件
+    if (screenshotUrl) {
+      axios.delete(`${API_URL}/api/delete-screenshot?url=${encodeURIComponent(screenshotUrl)}`).catch(() => {})
+    }
     // 已存在：提示用户可以覆盖
     if (e.response?.status === 409) {
       errorMsg.value = '你已经提交过了！如果想修改答案，请点击下方按钮重新提交（将覆盖原有数据）'
