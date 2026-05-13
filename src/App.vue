@@ -88,7 +88,7 @@
           <div class="row-2">
             <input class="text-input" v-model="form.name" placeholder="你的姓名（必填）">
             <div class="input-with-tip">
-              <input class="text-input" v-model="form.wx_name" placeholder="微信昵称">
+              <input class="text-input" v-model="form.wx_name" placeholder="微信昵称（必填）">
               <div class="tip-bubble">请填写你微信上的真实名称，方便我们准确找到你</div>
             </div>
           </div>
@@ -99,9 +99,9 @@
 
         <div class="card">
           <div class="q-num">📷</div>
-          <div class="q-text">上传微信主页截图<span class="q-sub">（选填）</span></div>
+          <div class="q-text">上传微信主页截图<span class="q-sub" style="color:#c0392b;">（必填）</span></div>
           <p class="q-sub" style="margin-bottom: 12px;">
-            请截取你的微信「我」页面，方便我们准确找到你并发送学习计划
+            请截取你的微信「我」页面（必填），方便我们准确找到你并发送学习计划
           </p>
           <div class="upload-area" @click="triggerUpload" :class="{ has: screenshotPreview }">
             <img v-if="screenshotPreview" :src="screenshotPreview" class="preview-img" />
@@ -424,10 +424,13 @@ function clearScreenshot() {
   if (fileInput.value) fileInput.value.value = ''
 }
 
-const totalCount = 11
+const totalCount = 14
 const answeredCount = computed(() => {
   let n = 0
   if (form.value.name.trim()) n++
+  if (form.value.wx_name.trim()) n++
+  if (form.value.phone.trim()) n++
+  if (screenshotPreview.value) n++
   if (form.value.province.trim()) n++
   if (form.value.school_type) n++
   if (form.value.chinese) n++
@@ -467,9 +470,14 @@ async function submitForm(force = false) {
   const name = form.value.name.trim()
   if (!name) { errorMsg.value = '请填写姓名'; return }
 
+  const wxName = (form.value.wx_name || '').trim()
+  if (!wxName) { errorMsg.value = '请填写微信昵称'; return }
+
   const phone = (form.value.phone || '').trim()
   if (!phone) { errorMsg.value = '请填写手机号'; return }
   if (!/^1[3-9]\d{9}$/.test(phone)) { errorMsg.value = '请填写正确的11位手机号'; return }
+
+  if (!screenshotFile.value) { errorMsg.value = '请上传微信主页截图'; return }
 
   const province = (form.value.province || '').trim()
   if (!province) { errorMsg.value = '请选择省份'; return }
